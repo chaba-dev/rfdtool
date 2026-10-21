@@ -1,0 +1,11 @@
+= RFD {{.Entry}} implementation checklist
+
+Implements link:README.adoc[RFD {{.Number}}: {{.Title}}].
+
+////
+One task for each change that can land on its own, in the order you expect to
+make them. Check a task off with [x] when its change is merged; an RFD can be
+committed only once every task is checked.
+////
+
+* [ ] The first change that can land on its own.

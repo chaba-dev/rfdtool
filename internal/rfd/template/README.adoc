@@ -1,0 +1,94 @@
+:authors: {{.Authors}}
+:state: prediscussion
+:discussion:
+:labels: {{.Labels}}
+// Section ids as rfdtool checks them: <<goal>> refers to == Goal.
+:idprefix:
+:idseparator: -
+
+= RFD {{.Number}} {{.Title}}
+
+////
+Text in comment blocks like this one never appears on the site. Read it, then
+delete it as you write.
+
+An RFD is read by people who were not in the room, often months later. Write
+for them: lead with the conclusion, keep paragraphs short, use plain words,
+and define a term before you rely on it.
+
+Goal, Problem, Objectives, and Proposal belong in every RFD. The other
+sections are there when they help: rename them, drop them, or add your own.
+////
+
+== Goal
+
+////
+One short paragraph: what is true once this RFD is done, and for whom. A
+reader who stops here should know what the RFD is about.
+////
+
+== Problem
+
+////
+What is wrong or missing today, and who it affects. Describe how things work
+now and why that is not enough, and point to the evidence: an incident, a
+request, a measurement, a limit someone hit. Leave the solution for the
+Proposal.
+////
+
+== Objectives
+
+////
+The outcomes that decide whether the proposal worked, as a short list. Prefer
+ones a reviewer can check, such as "an agent moves between deployments
+without being reconfigured", over ones they can't, such as "better
+portability".
+
+Then name the non-goals: what this RFD deliberately leaves out, so that
+reviewers don't ask for it and later RFDs know it is still open.
+
+* An outcome a reviewer can check.
+
+Non-goals:
+
+* Something this RFD leaves for later.
+////
+
+== Proposal
+
+////
+How the objectives are met. Open with the shape of the solution in a
+paragraph or a diagram, then give the detail a reviewer needs to judge it,
+one subsection per topic: the data model, interfaces, what people see and do,
+security, and how it rolls out.
+
+State decisions plainly ("The service stores..."), and give the reason whenever it
+isn't obvious.
+////
+
+== Alternatives
+
+////
+The other approaches you considered, and why this RFD doesn't take them. A
+short paragraph each is usually enough.
+////
+
+== Supporting material
+
+////
+Evidence behind the proposal: data, benchmarks, proof-of-concept results,
+how other products solve it, and the issues or discussions that led here.
+Summarize each item in a sentence that says what it shows, and link to the
+full material rather than pasting it in.
+////
+
+== Open questions
+
+////
+Questions this RFD hasn't answered yet. As each is settled, write the answer
+into the sections above and remove the question. A published RFD has none.
+////
+
+== Implementation
+
+Work is tracked in the link:IMPLEMENTATION.adoc[implementation checklist].
