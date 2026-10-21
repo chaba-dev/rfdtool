@@ -7,6 +7,38 @@ name: ci
     branches: [main]
 
 jobs:
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+
+      - name: Check formatting
+        run: |
+          unformatted="$(nix develop --command gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "Run gofmt -w on:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+
+      - name: Lint
+        run: nix develop --command golangci-lint run ./...
+
   test:
     runs-on: ubuntu-latest
 
@@ -17,11 +49,6 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
 
-      - name: Format
-        run: test -z "$(nix develop --command gofmt -l .)"
-
-      - name: Lint
-        run: nix develop --command golangci-lint run ./...
-
-      - name: Build and test the package
+      # Builds the package, which runs go test, and evaluates the dev shell.
+      - name: Build and test
         run: nix flake check
