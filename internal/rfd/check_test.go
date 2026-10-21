@@ -313,13 +313,18 @@ func TestIssues(t *testing.T) {
 		{"public RFD links to private RFD", func(f *fixture) {
 			f.writeRFD("prediscussion", "", "adoc")
 			f.writeSecond(":visibility: private\n:labels: core")
-			f.append("0001/README.adoc", "\nSee link:../0002/README.adoc[RFD 2].\n")
+			f.append("0001/README.adoc", "\nSee xref:../0002/README.adoc[RFD 2].\n")
 		}, "0001/README.adoc: public RFD links to private RFD 0002"},
 		{"public RFD's checklist links to private RFD", func(f *fixture) {
 			f.writeRFD("prediscussion", "", "adoc")
 			f.writeSecond(":visibility: private\n:labels: core")
-			f.append("0001/IMPLEMENTATION.adoc", "\nSee link:../0002/README.adoc[RFD 2].\n")
+			f.append("0001/IMPLEMENTATION.adoc", "\nSee xref:../0002/README.adoc[RFD 2].\n")
 		}, "0001/IMPLEMENTATION.adoc: public RFD links to private RFD 0002"},
+		{"public RFD links to private RFD's checklist", func(f *fixture) {
+			f.writeRFD("prediscussion", "", "adoc")
+			f.writeSecond(":visibility: private\n:labels: core")
+			f.append("0001/README.adoc", "\nSee link:../0002/IMPLEMENTATION.adoc[its checklist].\n")
+		}, "0001/README.adoc: public RFD links to private RFD 0002"},
 		{"unchecked task mentioning a checkbox", func(f *fixture) {
 			f.writeRFD("committed", "https://example.com/pull/2", "adoc")
 			f.replace("0001/IMPLEMENTATION.adoc", "* [ ] Complete the work.", "* [ ] Render [x] checkboxes.")
@@ -397,6 +402,14 @@ func TestAllowed(t *testing.T) {
 			f.snapshot()
 			f.toOrg()
 		}},
+		{"final RFD's link macros become cross references", func(f *fixture) {
+			f.writeDone()
+			f.writeSecond(":labels: core")
+			f.append("0002/README.adoc", "\n== Design\n")
+			f.append("0001/README.adoc", "\nSee link:../0002/README.adoc#design[RFD 2's design].\n")
+			f.snapshot()
+			f.replace("0001/README.adoc", "link:../0002/README.adoc#design", "xref:../0002/README.adoc#_design")
+		}},
 		{"final RFD relabeled", func(f *fixture) {
 			f.writeDone()
 			f.snapshot()
@@ -406,12 +419,12 @@ func TestAllowed(t *testing.T) {
 			f.writeRFD("prediscussion", "", "adoc")
 			f.replace("0001/README.adoc", ":labels:", ":visibility: private\n:labels:")
 			f.writeSecond(":labels: internal")
-			f.append("0001/README.adoc", "\nSee link:../0002/README.adoc[RFD 2].\n")
+			f.append("0001/README.adoc", "\nSee xref:../0002/README.adoc[RFD 2].\n")
 		}},
 		{"public RFD links to public RFD", func(f *fixture) {
 			f.writeRFD("prediscussion", "", "adoc")
 			f.writeSecond(":labels: core")
-			f.append("0001/README.adoc", "\nSee link:../0002/README.adoc[RFD 2].\n")
+			f.append("0001/README.adoc", "\nSee xref:../0002/README.adoc[RFD 2].\n")
 		}},
 		{"final RFD made public", func(f *fixture) {
 			f.writeDone()

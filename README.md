@@ -122,8 +122,6 @@ Each RFD is a directory `NNNN/` with a four-digit number:
   :discussion: https://github.com/example/rfd/pull/12
   :labels: core, storage
   :visibility: public
-  :idprefix:
-  :idseparator: -
 
   = RFD 12 Storage layout
   ```
@@ -136,10 +134,9 @@ Each RFD is a directory `NNNN/` with a four-digit number:
   be made public. Visibility is metadata that `rfdtool check` enforces and a
   site can read; `rfdtool` itself does not publish or hide anything.
 
-  Section ids follow `:idprefix:` empty and `:idseparator: -`, so `== Goal`
-  is `<<goal>>`. The built-in template sets both; render RFDs with them, or
-  `rfdtool check` accepts references that the default Asciidoctor settings
-  would break.
+  Section ids are Asciidoctor's defaults, so `== Goal and scope` is
+  `<<_goal_and_scope>>`. Render RFDs without changing `idprefix` or
+  `idseparator`, or links that `rfdtool check` accepts will break.
 - `IMPLEMENTATION.adoc` (or `.md` or `.org`): the implementation checklist.
   Its first line is `= RFD NNNN implementation checklist` (`#` in Markdown,
   `#+TITLE:` in Org), it links back to `README.adoc`, the README links to it,
@@ -167,17 +164,21 @@ directory instead.
 
 ### Links between RFDs
 
-Every mention of another RFD links to it with a relative source link, which
-renders on GitHub and which a site can rewrite into its own pages:
+Every mention of another RFD links to it with an AsciiDoc cross reference.
+GitHub renders it as a link to the source, and Asciidoctor as a link to
+`README.html`, which a site can rewrite into its own pages:
 
 ```asciidoc
-See link:../0005/README.adoc[RFD 5], and RFDs link:../0013/README.adoc[13]
-and link:../0014/README.adoc[14].
+See xref:../0005/README.adoc[RFD 5], and RFDs xref:../0013/README.adoc[13]
+and xref:../0014/README.adoc[14]. xref:../0005/README.adoc#_goal[Its goal]
+links to a section.
 ```
 
 `rfdtool check` rejects unlinked mentions, links to RFDs or sections that do
-not exist, and links from a public RFD to a private one, in `README.adoc` and
-`IMPLEMENTATION.adoc`. `rfdtool link` adds the missing links. Links in
+not exist, links from a public RFD to a private one, and `link:` macros to
+other RFDs, in `README.adoc` and `IMPLEMENTATION.adoc`. `rfdtool link` adds
+the missing links. Replacing `link:` macros with cross references is allowed
+on a final RFD. Links in
 Markdown and Org checklists are not checked.
 
 ## Developing
