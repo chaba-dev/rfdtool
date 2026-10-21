@@ -178,23 +178,143 @@ func LinkMentions(text string, self int, exists func(int) bool) string {
 }
 
 // sectionIDs returns the ids a document's sections and anchors get, with the
-// site's AsciiDoc settings: no prefix and "-" between words.
+// site's AsciiDoc settings: no prefix and "-" between words. A section whose
+// block attributes or title set an id gets that id instead of one from its
+// title. Anchors in literal blocks, such as TOML tables in a listing, are
+// text, unless the block turns substitutions on. When unsure, it keeps an id:
+// accepting a link to a missing section is better than rejecting a valid one.
 func sectionIDs(text string) map[string]bool {
 	ids := map[string]bool{}
+	lines := strings.Split(text, "\n")
 	plainLines := strings.Split(prose(text), "\n")
-	for i, line := range strings.Split(text, "\n") {
-		if m := sectionTitle.FindStringSubmatch(line); m != nil && strings.TrimSpace(plainLines[i]) != "" {
-			ids[sectionID(m[1])] = true
+	literal := literalLines(lines)
+	anchored := false // the block attributes above this line set an id
+	for i, line := range lines {
+		if literal[i] {
+			anchored = false
+			continue
 		}
-		for _, m := range explicitAnchor.FindAllStringSubmatch(line, -1) {
+		anchors := explicitAnchor.FindAllStringSubmatch(line, -1)
+		for _, m := range anchors {
 			for _, id := range m[1:] {
 				if id != "" {
 					ids[strings.TrimSpace(id)] = true
 				}
 			}
 		}
+		switch m := sectionTitle.FindStringSubmatch(line); {
+		case m != nil:
+			if strings.TrimSpace(plainLines[i]) != "" && !anchored && len(anchors) == 0 {
+				ids[sectionID(m[1])] = true
+			}
+			anchored = false
+		case blockAttributes.MatchString(line):
+			if id, ok := blockID(line); ok {
+				anchored = true
+				if id != "" {
+					ids[id] = true
+				}
+			}
+		case strings.TrimSpace(line) != "":
+			// Block attributes apply across blank lines, to the next block.
+			anchored = false
+		}
 	}
 	return ids
+}
+
+var (
+	// blockAttributes matches a line of block attributes, such as [[id]],
+	// [#id.role], or [source,toml], which apply to the block or section below.
+	blockAttributes = regexp.MustCompile(`^\[[^\]].*\][ \t]*$`)
+	// anchorLine matches a line of block anchors, such as [[id]] or
+	// [[id,text]][[other]].
+	anchorLine = regexp.MustCompile(`^(?:\[\[[^\[\]]+\]\])+[ \t]*$`)
+	// substitutions matches a block attribute that sets substitutions.
+	substitutions = regexp.MustCompile(`\bsubs=`)
+)
+
+// blockID reports whether a block attribute line gives the block below an
+// id: [[id]], an id shorthand in the first attribute as in [#id] or
+// [source#id], or id=. It returns the id, except for [[id]], whose ids
+// explicitAnchor finds. Text that only looks like an anchor inside a quoted
+// value, as in [role="[[x]]"], sets no id.
+func blockID(line string) (string, bool) {
+	line = strings.TrimSpace(line)
+	if anchorLine.MatchString(line) {
+		return "", true
+	}
+	if strings.HasPrefix(line, "[[") {
+		return "", false
+	}
+	for i, attr := range splitAttributes(line[1 : len(line)-1]) {
+		attr = strings.TrimSpace(attr)
+		if id, ok := strings.CutPrefix(attr, "id="); ok && strings.Trim(id, `"'`) != "" {
+			return strings.Trim(id, `"'`), true
+		}
+		// Asciidoctor reads no shorthand from a value with spaces.
+		if i == 0 && !strings.ContainsAny(attr, "=\"' \t") {
+			if _, id, ok := strings.Cut(attr, "#"); ok {
+				// Roles (.) and options (%) may follow the id.
+				if i := strings.IndexAny(id, ".%"); i >= 0 {
+					id = id[:i]
+				}
+				if id != "" {
+					return id, true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+// splitAttributes splits a block attribute list at the commas outside quotes.
+func splitAttributes(list string) []string {
+	var out []string
+	start, quote := 0, rune(0)
+	for i, r := range list {
+		switch {
+		case quote != 0:
+			if r == quote {
+				quote = 0
+			}
+		case r == '"' || r == '\'':
+			quote = r
+		case r == ',':
+			out = append(out, list[start:i])
+			start = i + 1
+		}
+	}
+	return append(out, list[start:])
+}
+
+// literalLines reports which lines are in literal blocks or their
+// delimiters: listings, literals, comments, and passthroughs. Blocks whose
+// attributes set substitutions, which can turn macros such as anchors on, are
+// not literal here, except comments, which never render.
+func literalLines(lines []string) []bool {
+	literal := make([]bool, len(lines))
+	open, skip, attrs := "", false, ""
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case open != "":
+			literal[i] = skip
+			if trimmed == open {
+				open = ""
+			}
+		case literalDelimiter.MatchString(line):
+			open = trimmed
+			skip = trimmed == "////" || !substitutions.MatchString(attrs)
+			literal[i] = skip
+		}
+		if blockAttributes.MatchString(line) && open == "" {
+			attrs += line
+		} else if trimmed != "" {
+			attrs = ""
+		}
+	}
+	return literal
 }
 
 // sectionID mirrors Asciidoctor's generated section ids with idprefix="" and

@@ -74,6 +74,37 @@ func TestSectionIDs(t *testing.T) {
 	if ids["not-a-section"] {
 		t.Errorf("listing text became a section: %v", ids)
 	}
+
+	// Ids as asciidoctor.js gives them with the site's settings.
+	for _, tt := range []struct {
+		name, text string
+		want, not  []string
+	}{
+		{"anchor replaces title id", "[[values]]\n=== Values and drift\n", []string{"values"}, []string{"values-and-drift"}},
+		{"anchor across attributes", "[#ext]\n[role=wide]\n== Extension points\n", []string{"ext"}, []string{"extension-points"}},
+		{"anchor across a blank line", "[[a]]\n\n== Blank between\n", []string{"a"}, []string{"blank-between"}},
+		{"anchor on a paragraph", "[[p]]\nA paragraph.\n\n== Para before\n", []string{"p", "para-before"}, nil},
+		{"anchor in the title", "== Title anchor [[ta]]\n", []string{"ta"}, []string{"title-anchor"}},
+		{"id shorthand after a style", "[discrete#dd.role]\n== Discrete\n", []string{"dd"}, []string{"discrete"}},
+		{"id attribute", "[id=\"sec\"]\n== Id attr\n", []string{"sec"}, []string{"id-attr"}},
+		{"anchor in a quoted value", "[role=\"[[x]]\"]\n== Title\n", []string{"title"}, nil},
+		{"anchor in monospace", "Use `[[x]]value` here.\n", []string{"x"}, nil},
+		{"TOML in a listing", "[source,toml]\n----\n[[exporters]]\n----\n\n== After\n", []string{"after"}, []string{"exporters"}},
+		{"listing with macros", "[subs=\"+macros\"]\n----\n[[x]]\n----\n\n== After\n", []string{"x", "after"}, nil},
+		{"positional with a space", "[foo #bar]\n== Title\n", []string{"title"}, nil},
+	} {
+		ids := sectionIDs("= RFD 1 Title\n\n" + tt.text)
+		for _, id := range tt.want {
+			if !ids[id] {
+				t.Errorf("%s: missing id %q in %v", tt.name, id, ids)
+			}
+		}
+		for _, id := range tt.not {
+			if ids[id] {
+				t.Errorf("%s: unexpected id %q in %v", tt.name, id, ids)
+			}
+		}
+	}
 }
 
 func TestWrapChanged(t *testing.T) {
