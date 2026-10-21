@@ -13,13 +13,15 @@ import (
 	"unicode"
 )
 
-// An RFD that mentions another RFD links to it, so readers can follow the
-// reference on the site and on GitHub:
+// An RFD that mentions another RFD links to it with an AsciiDoc cross
+// reference, so readers can follow the reference on the site and on GitHub:
 //
-//	link:../0005/README.adoc[RFD 5]
-//	RFDs link:../0013/README.adoc[13] and link:../0014/README.adoc[14]
+//	xref:../0005/README.adoc[RFD 5]
+//	RFDs xref:../0013/README.adoc[13] and xref:../0014/README.adoc[14]
+//	xref:../0005/README.adoc#_goal[its goal]
 //
-// The site rewrites these source links into page links.
+// Asciidoctor renders these as links to README.html, which a site rewrites
+// into page links. Section ids are Asciidoctor's defaults, such as _goal.
 
 var (
 	// mention matches "RFD 5", and "RFDs 12, 13, and 14" or "RFDs 1 to 7"
@@ -27,15 +29,16 @@ var (
 	mention = regexp.MustCompile(`\b(RFDs?)[ \t\n]+([0-9]+(?:(?:,[ \t\n]*(?:(?:and|or)[ \t\n]+)?|[ \t\n]+(?:and|or|to|through)[ \t\n]+)[0-9]+)*)\b`)
 	number  = regexp.MustCompile(`[0-9]+`)
 
-	// rfdLinkMacro matches a link to another RFD, with the RFD number in group
-	// 1, the anchor in group 2, and the link text in group 3.
-	rfdLinkMacro = regexp.MustCompile(`link:\.\./([0-9]{4})/README\.adoc(?:#([^\[\s]*))?\[([^\]]*)\]`)
+	// rfdLinkMacro matches a link to another RFD, with the macro in group 1,
+	// the RFD number in group 2, the anchor in group 3, and the link text in
+	// group 4. Only xref is valid; link is matched to reject it.
+	rfdLinkMacro = regexp.MustCompile(`(xref|link):\.\./([0-9]{4})/README\.adoc(?:#([^\[\s]*))?\[([^\]]*)\]`)
 	// localXref matches <<anchor>> and <<anchor,text>>.
 	localXref = regexp.MustCompile(`<<([^,>]+)(?:,[^>]*)?>>`)
 
-	// Spans where a mention is not prose: link macros and URLs with their
-	// text, cross references, and inline literals.
-	skipSpan = regexp.MustCompile(`(?:link:|https?://)[^\[\s]*\[[^\]]*\]|<<[^>]*>>|` + "`[^`\n]*`" + `|\+[^+\n]*\+`)
+	// Spans where a mention is not prose: link and xref macros and URLs with
+	// their text, cross references, and inline literals.
+	skipSpan = regexp.MustCompile(`(?:link:|xref:|https?://)[^\[\s]*\[[^\]]*\]|<<[^>]*>>|` + "`[^`\n]*`" + `|\+[^+\n]*\+`)
 	// Lines where a mention is not prose: titles, attributes, and comments.
 	skipLine = regexp.MustCompile(`^(?:= |:[^:]+:|//)`)
 	// Delimiters of blocks whose text is not prose: listings, literals,
@@ -110,9 +113,12 @@ func checkLinks(text string, self int, anchors map[string]map[string]bool) []lin
 	}
 
 	for _, m := range rfdLinkMacro.FindAllStringSubmatch(text, -1) {
-		target, anchor, label := m[1], m[2], m[3]
+		macro, target, anchor, label := m[1], m[2], m[3], m[4]
 		ids, ok := anchors[target]
 		switch {
+		case macro == "link":
+			problems = append(problems, linkProblem{message: "links to RFD " + strings.TrimLeft(target, "0") + " with link:; use xref:"})
+			continue
 		case !ok:
 			problems = append(problems, linkProblem{message: "links to RFD " + strings.TrimLeft(target, "0") + ", which does not exist"})
 			continue
@@ -158,7 +164,7 @@ func LinkMentions(text string, self int, exists func(int) bool) string {
 			if word == "RFD" {
 				label = "RFD " + label
 			}
-			fmt.Fprintf(&linked, "link:../%04d/README.adoc[%s]", num, label)
+			fmt.Fprintf(&linked, "xref:../%04d/README.adoc[%s]", num, label)
 			changed = true
 		}
 		if !changed {
@@ -177,8 +183,8 @@ func LinkMentions(text string, self int, exists func(int) bool) string {
 	return b.String()
 }
 
-// sectionIDs returns the ids a document's sections and anchors get, with the
-// site's AsciiDoc settings: no prefix and "-" between words. A section whose
+// sectionIDs returns the ids a document's sections and anchors get, with
+// Asciidoctor's default settings: "_" before and between words. A section whose
 // block attributes or title set an id gets that id instead of one from its
 // title. Anchors in literal blocks, such as TOML tables in a listing, are
 // text, unless the block turns substitutions on. When unsure, it keeps an id:
@@ -317,29 +323,34 @@ func literalLines(lines []string) []bool {
 	return literal
 }
 
-// sectionID mirrors Asciidoctor's generated section ids with idprefix="" and
-// idseparator="-".
+// sectionID mirrors the section ids asciidoctor.js generates with its default
+// idprefix and idseparator, both "_": it drops other characters, turns
+// spaces, dots, and hyphens into "_", collapses each run of "_" into one, and
+// drops a trailing one.
 func sectionID(title string) string {
 	title = regexp.MustCompile(`<[^>]+>|&[a-z][a-z]+\d{0,2};|&#\d+;|&#x[0-9a-f]+;`).ReplaceAllString(strings.ToLower(title), "")
-	title = strings.NewReplacer("`", "", "*", "").Replace(title)
 	var b strings.Builder
+	b.WriteByte('_')
 	for _, r := range title {
 		switch {
 		case r == ' ' || r == '.' || r == '-':
-			b.WriteRune('-')
+			b.WriteByte('_')
 		case unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_':
 			b.WriteRune(r)
 		}
 	}
-	id := regexp.MustCompile(`-+`).ReplaceAllString(b.String(), "-")
-	return strings.Trim(id, "-")
+	id := regexp.MustCompile(`_+`).ReplaceAllString(b.String(), "_")
+	if len(id) > 1 {
+		id = strings.TrimSuffix(id, "_")
+	}
+	return id
 }
 
 // unlinkRFDs replaces links to other RFDs with their text, and drops the
 // target of cross references, so that adding or fixing a link is not a change
 // to a final RFD's decision.
 func unlinkRFDs(line string) string {
-	return xrefTarget.ReplaceAllString(rfdLinkMacro.ReplaceAllString(line, "$3"), "<<")
+	return xrefTarget.ReplaceAllString(rfdLinkMacro.ReplaceAllString(line, "$4"), "<<")
 }
 
 var xrefTarget = regexp.MustCompile(`<<[^,>]+`)

@@ -41,7 +41,9 @@ func (r *Report) problem(path, format string, args ...any) {
 
 var (
 	entryName = regexp.MustCompile(`^[0-9]{4}$`)
-	rfdLink   = regexp.MustCompile(`link:\.\./([0-9]{4})/`)
+	// rfdLink matches any link into another RFD's directory, so visibility
+	// covers links to its other files too.
+	rfdLink = regexp.MustCompile(`(?:xref|link):\.\./([0-9]{4})/`)
 )
 
 // An rfdLinkTarget is a link from one of an RFD's documents to another RFD.

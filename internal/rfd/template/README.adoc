@@ -2,9 +2,6 @@
 :state: prediscussion
 :discussion:
 :labels: {{.Labels}}
-// Section ids as rfdtool checks them: <<goal>> refers to == Goal.
-:idprefix:
-:idseparator: -
 
 = RFD {{.Number}} {{.Title}}
 
