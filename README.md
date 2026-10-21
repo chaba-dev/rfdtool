@@ -25,8 +25,53 @@ To pin the version a repository uses, add it as a Go tool and run it with
 go get -tool github.com/chaba-dev/rfdtool@latest
 ```
 
-With Nix, run it with `nix run github:chaba-dev/rfdtool -- check`, or add
-the flake's `packages.default` to a dev shell.
+### With Nix
+
+Run it once with `nix run github:chaba-dev/rfdtool -- check`, or install it
+with `nix profile install github:chaba-dev/rfdtool`.
+
+In an RFD repository with a flake, add rfdtool as an input and put the binary
+in the dev shell, so `rfdtool` is on the path there and in CI's
+`nix develop --command`. `flake.lock` pins the version; `nix flake update
+rfdtool` moves it to the latest commit.
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+    rfdtool = {
+      url = "github:chaba-dev/rfdtool";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs =
+    { nixpkgs, flake-utils, rfdtool, ... }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          packages = [
+            rfdtool.packages.${system}.default
+            pkgs.git # for rfdtool check --base-ref, and authors in rfdtool new
+          ];
+        };
+      }
+    );
+}
+```
+
+A flake that builds its own nixpkgs can add `rfdtool.overlays.default` to its
+overlays and use `pkgs.rfdtool` instead. Either way the package needs Go 1.26
+(`go_1_26`) from that nixpkgs. It builds on Linux and Apple Silicon macOS;
+current nixpkgs no longer supports Intel Macs.
+
+`rfdtool --version` prints the commit a Nix build came from, or the module
+version for `go install`.
 
 To start a project, create the RFD directory and the first RFD:
 
