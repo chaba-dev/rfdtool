@@ -13,35 +13,57 @@
       flake-utils,
       ...
     }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-
-        # The Go release go.mod asks for, used to build and in the dev shell.
-        go = pkgs.go_1_26;
-        buildGoModule = pkgs.buildGoModule.override { inherit go; };
-
-        rfdtool = buildGoModule {
-          pname = "rfdtool";
+    let
+      # rfdtool built with the Go release go.mod asks for, from any nixpkgs
+      # that has it.
+      mkRfdtool =
+        pkgs:
+        let
           version = self.shortRev or self.dirtyShortRev or "dev";
-          src = ./.;
+          buildGoModule = pkgs.buildGoModule.override { go = pkgs.go_1_26; };
+        in
+        buildGoModule {
+          pname = "rfdtool";
+          inherit version;
+          src = self;
           # Update when go.mod or go.sum change: set it to pkgs.lib.fakeHash,
           # run nix build, and copy the hash it reports.
           vendorHash = "sha256-3+raHHPQE20lsZ09Kvljd9FVECCN9q7ZQlKk6KemRig=";
+          ldflags = [
+            "-s"
+            "-w"
+            "-X main.version=${version}"
+          ];
           # The tests read and write git repositories.
           nativeCheckInputs = [ pkgs.git ];
-          meta.mainProgram = "rfdtool";
+          meta = {
+            description = "Check, link, start, and report on Requests for Discussion";
+            homepage = "https://github.com/chaba-dev/rfdtool";
+            mainProgram = "rfdtool";
+          };
         };
+    in
+    {
+      # Adds pkgs.rfdtool, for flakes that build their own nixpkgs.
+      overlays.default = final: prev: { rfdtool = mkRfdtool final; };
+    }
+    // flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = import nixpkgs { inherit system; };
+        go = pkgs.go_1_26;
+        rfdtool = mkRfdtool pkgs;
       in
       {
-        packages.default = rfdtool;
-
-        apps.default = flake-utils.lib.mkApp { drv = rfdtool; };
+        packages = {
+          inherit rfdtool;
+          default = rfdtool;
+        };
 
         # nix flake check builds the package, which runs go test.
         checks.default = rfdtool;
 
+        # For working on rfdtool itself, with the Go release go.mod asks for.
         devShells.default = pkgs.mkShell {
           packages = [
             go

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	"github.com/urfave/cli/v3"
@@ -16,10 +17,27 @@ import (
 	"github.com/chaba-dev/rfdtool/internal/rfd"
 )
 
+// version is set at build time with -ldflags "-X main.version=...", as the
+// Nix flake does.
+var version = ""
+
+// buildVersion returns the version set at build time, or the module version
+// go install records, such as v0.1.0.
+func buildVersion() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
+		return info.Main.Version
+	}
+	return "(devel)"
+}
+
 func main() {
 	cmd := &cli.Command{
-		Name:  "rfdtool",
-		Usage: "tools for a project's Requests for Discussion",
+		Name:    "rfdtool",
+		Version: buildVersion(),
+		Usage:   "tools for a project's Requests for Discussion",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "config",
